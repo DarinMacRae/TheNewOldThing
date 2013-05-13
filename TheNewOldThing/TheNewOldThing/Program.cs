@@ -9,15 +9,31 @@ using System.Threading.Tasks;
 using Xunit;
 
 //TODO: Put these classes into separate files for maintainability. Leaving as-is for readability.
+//TODO: Add code to handle invalid input (file name, mal-content, etc)
+//TODO: Add parameter checking or Constraints
 namespace TheNewOldThing
 {
     class Program
     {
         static void Main(string[] args)
         {
-            OutputPipe
-                .To(Console.Out)
-                .Write(Algorithm.DistinctCounts(InputPipe.From(new StreamReader(args[0])).Read()));
+            // Possible future requirements to consider:
+            //     - Gracefully handle other kinds of exceptions
+            //      
+            try
+            {
+                OutputPipe
+                    .To(Console.Out)
+                    .Write(Algorithm.DistinctCounts(InputPipe.From(new StreamReader(args[0])).Read()));
+            }
+            catch (FileNotFoundException fnf)
+            {
+                Console.WriteLine("The file could not be found.");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("We apologize but something we didn't expect has happened and this program cannot continue.");
+            }
 
             Console.ReadLine();
         }
@@ -33,6 +49,10 @@ namespace TheNewOldThing
         public IEnumerable<string> Read()
         {
             string line;
+            // Expects a specific format.
+            // Possible future requirements to consider:
+            //     - Gracefully handle bad input (e.g. no comma)
+            //      
             while ((line = _reader.ReadLine()) != null)
                 yield return line.Split(',')[1];
         }
@@ -67,7 +87,7 @@ namespace TheNewOldThing
         {
             foreach (var item in items)
             {
-                _writer.WriteLine("{0},{1}", item.Item1, item.Item2);
+                _writer.WriteLineAsync(String.Format("{0},{1}", item.Item1, item.Item2));
             }
             
             return items.Count();
