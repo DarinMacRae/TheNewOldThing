@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -7,52 +8,50 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
+//TODO: Put these classes into separate files for maintainability. Leaving as-is for readability.
 namespace TheNewOldThing
 {
     class Program
     {
         static void Main(string[] args)
         {
-            OutputPipe.To(Console.Out).Write(Algorithm.DistinctCounts(InputPipe.FromFile(args[0]).Read()));
+            OutputPipe
+                .To(Console.Out)
+                .Write(Algorithm.DistinctCounts(InputPipe.From(new StreamReader(args[0])).Read()));
+
             Console.ReadLine();
         }
     }
 
     public class InputPipe
     {
-        public static InputPipe FromFile(string file)
+        public static InputPipe From(TextReader reader)
         {
-            return new InputPipe(file);
+            return new InputPipe(reader);
         }
 
         public IEnumerable<string> Read()
         {
-            return File.ReadAllLines(_file)
-                .Select(line => line.Split(',')[1]);
+            string line;
+            while ((line = _reader.ReadLine()) != null)
+                yield return line.Split(',')[1];
         }
 
-        protected InputPipe(string file)
+        protected InputPipe(TextReader reader)
         {
-            _file = file;
+            _reader = reader;
         }
 
-        private readonly string _file;
+        private readonly TextReader _reader;
     }
 
     public class Algorithm
     {
+        // TODO: Consider allowing parallel optimization to be configurable.
         public static IEnumerable<Tuple<string, int>> DistinctCounts(IEnumerable<string> items)
         {
-            var summary = new Dictionary<string, int>();
-
-            foreach (var item in items)
-            {
-                if (!summary.ContainsKey(item))
-                    summary.Add(item, 0);
-
-                summary[item]++;
-            }
-
+            var summary = new ConcurrentDictionary<string, int>();
+            Parallel.ForEach(items, item => summary.AddOrUpdate(item, 1, (k, v) => v + 1));
             return summary.Select(item => Tuple.Create(item.Key, item.Value));
         }
     }
@@ -88,7 +87,7 @@ namespace TheNewOldThing
 
         public given_an_input_pipe()
         {
-            _sut = InputPipe.FromFile(@"..\..\TestData.csv");
+            _sut = InputPipe.From(File.OpenText(@"..\..\TestData.csv"));
         }
 
         [Fact]
@@ -135,7 +134,7 @@ namespace TheNewOldThing
         [Fact]
         public void when_using_non_repeating_items_then_counts_equal_1()
         {
-            var data = Enumerable.Range(1, 10).Select(item => item.ToString(CultureInfo.InvariantCulture)).ToArray();
+            var data = Enumerable.Range(1, 1000).Select(item => item.ToString(CultureInfo.InvariantCulture)).ToArray();
             var counts = _fut(data);
             foreach(var tuple in counts)
                 Assert.Equal(1, tuple.Item2);
